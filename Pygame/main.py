@@ -81,12 +81,36 @@ class explosion:
 # player class
 class player_Ship(ship):
 	def __init__(self, x, y):
+
 		super().__init__(x,y,type)
 		self.health = 3
 		self.speed = 5
 		self.ship_img = playerImage
 		self.laser_img = playerlaser_image
 		self.mask = pygame.mask.from_surface(self.ship_img)
+		self.lost_life = False
+		self.FLICKERING_LONG = 15
+		self.FLICKERING_TIMES = 10
+		self.flickering_long = self.FLICKERING_LONG
+		self.flickering_times = self.FLICKERING_TIMES
+
+
+	def death(self):
+		global key_disabled
+		if self.flickering_times <= 0:
+			self.lost_life = False
+			self.flickering_times = self.FLICKERING_TIMES
+			self.flickering_long = self.FLICKERING_LONG
+			key_disabled = False
+		elif self.flickering_long <= 0:
+			self.flickering_times -= 1
+			self.flickering_long = self.FLICKERING_LONG
+		elif self.flickering_long > 0 and self.flickering_times % 2 == 1:
+			self.flickering_long -= 1
+		elif self.flickering_long > 0 and self.flickering_times % 2 == 0:
+			screen.blit(self.ship_img, (int(self.x), int(self.y)))
+			self.flickering_long -= 1
+
 
 #player laser
 class player_laser(laser):
@@ -167,7 +191,10 @@ def main():
 				explosions.remove(explo)
 			else:
 				explo.draw()
-		player.draw()
+		if player.lost_life == False:
+			player.draw()
+		else:
+			player.death()
 		pygame.display.update()
 
 	while game:
@@ -184,6 +211,7 @@ def main():
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
 				game = False
+
 
 		# Movement events
 		keys = pygame.key.get_pressed()
@@ -216,12 +244,14 @@ def main():
 		# enemy death by falling and enemy laser detect
 		for enemy in enemies:
 			if player.mask.overlap(enemy.mask, (int(enemy.x) - int(player.x),int(enemy.y) - int(player.y))) != None:
-				player.health -= 1
 				explosions.append(explosion(enemy.x, enemy.y))
 				explosions.append(explosion(player.x, player.y))
 				enemies.remove(enemy)
+				player.health -= 1
 				player.x = SCREEN_WIDTH / 2 - 32
 				player.y = SCREEN_HEIGHT * 0.85
+				key_disabled = True
+				player.lost_life = True
 			for laser in player.lasers:
 				if laser.mask.overlap(enemy.mask, (int(enemy.x) - int(laser.x),int(enemy.y) - int(laser.y))) != None:
 					player.lasers.remove(laser)
@@ -238,5 +268,6 @@ def main():
 		# increase level
 		if len(enemies) == 0:
 			level += 1
+
 
 main()
