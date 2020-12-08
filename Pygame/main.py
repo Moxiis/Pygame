@@ -12,8 +12,10 @@ LASER_WIDTH = 16
 LASER_HEIGHT = 16
 LASER_COOLDOWN = 20
 
-EXPLOSION_WIDTH = 60
-EXPLOSION_HEIGHT = 60
+EXPLOSION_WIDTH = 80
+EXPLOSION_HEIGHT = 80
+EXPLOSION_WIDTH_BOSS = 200
+EXPLOSION_HEIGHT_BOSS = 200
 
 ENEMY_WIDTH = 45
 ENEMY_HEIGHT = 45
@@ -40,6 +42,7 @@ playerImage = pygame.image.load("images\ship.png")
 playerlaser_image = pygame.image.load("images\laser_Player.png")
 enemylaser_image = pygame.image.load("images\laser_Enemy.png")
 explosion_image = [pygame.transform.scale(pygame.image.load("images\explosion1.png"), (EXPLOSION_WIDTH, EXPLOSION_HEIGHT)), pygame.transform.scale(pygame.image.load("images\explosion2.png"), (EXPLOSION_WIDTH, EXPLOSION_HEIGHT)), pygame.transform.scale(pygame.image.load("images\explosion3.png"), (EXPLOSION_WIDTH, EXPLOSION_HEIGHT)), pygame.transform.scale(pygame.image.load("images\explosion4.png"), (EXPLOSION_WIDTH, EXPLOSION_HEIGHT)), pygame.transform.scale(pygame.image.load("images\explosion5.png"), (EXPLOSION_WIDTH, EXPLOSION_HEIGHT))]
+explosion_image_boss = [pygame.transform.scale(pygame.image.load("images\explosion1.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS)), pygame.transform.scale(pygame.image.load("images\explosion2.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS)), pygame.transform.scale(pygame.image.load("images\explosion3.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS)), pygame.transform.scale(pygame.image.load("images\explosion4.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS)), pygame.transform.scale(pygame.image.load("images\explosion5.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS))]
 tiefighter_Image = pygame.transform.scale(pygame.image.load("images\star_Fighter.png"), (ENEMY_WIDTH, ENEMY_HEIGHT))
 tiebomber_Image = pygame.transform.scale(pygame.image.load("images\star_Bomber.png"), (ENEMY_WIDTH, ENEMY_HEIGHT))
 destroyer_Image = pygame.transform.scale(pygame.image.load("images\destroyer.png"), (3 * ENEMY_WIDTH, 3 * ENEMY_HEIGHT))
@@ -146,20 +149,45 @@ class enemy_Ship(ship):
 		self.laser_img = enemylaser_image
 		self.mask = pygame.mask.from_surface(self.ship_img)
 		self.attack_speed = 240
+		self.speed = 3
 
-	def move(self,player_vel):
+	def move(self):
 		if self.x >= SCREEN_WIDTH - ENEMY_WIDTH:
 			self.Right = False
 		if 	self.x <= 0:
 			self.Right = True
 		if self.type == "Fighter" and self.Right == True:
-			self.y += player_vel / 2
-			self.x += player_vel * 2
+			self.y += self.speed / 2
+			self.x += self.speed * 2
 		elif self.type == "Fighter" and self.Right == False:
-			self.y += player_vel / 2
-			self.x += - player_vel * 2
+			self.y += self.speed / 2
+			self.x += - self.speed * 2
 		else:
-			self.y += player_vel
+			self.y += self.speed
+
+	def attack(self):
+		global enemies_lasers
+		if self.laser_cooldown <= 0 and self.y >= 0:
+			enemies_lasers.append(enemy_laser(self.x + self.ship_img.get_width() / 2 - 8, self.y))
+			self.laser_cooldown = self.attack_speed
+		else:
+			self.laser_cooldown -= 1
+
+class Boss(ship):
+	def __init__(self, x, y, health):
+		super().__init__(x, y, health)
+		self.speed = 2
+		self.start_attack = False
+		self.health = 50
+		self.ship_img = destroyer_Image
+		self.laser_cooldown = 40
+		self.attack_speed = 240
+		self.mask = pygame.mask.from_surface(self.ship_img)
+
+	def move(self):
+		self.y += self.speed
+		if self.y >= SCREEN_WIDTH * 0.10:
+			self.start_attack = True
 
 	def attack(self):
 		global enemies_lasers
@@ -209,7 +237,7 @@ def main():
 		screen.blit(level_Label,(5,5))
 		screen.blit(live_Label, (SCREEN_WIDTH - level_Label.get_width() + 10, 5))
 		for enemy in enemies:
-			enemy.move(VELOCITY_ENEMIES / 2)
+			enemy.move()
 			enemy.draw()
 		for laser in enemies_lasers:
 			laser.move()
@@ -272,6 +300,7 @@ def main():
 			if player.mask.overlap(enemy.mask, (int(enemy.x) - int(player.x),int(enemy.y) - int(player.y))) != None:
 				explosions.append(explosion(enemy.x, enemy.y))
 				enemies.remove(enemy)
+				enemy.health -= 1
 				if player.lost_life == False:
 					explosions.append(explosion(player.x, player.y))
 					player.health -= 1
@@ -291,6 +320,7 @@ def main():
 				if laser.mask.overlap(enemy.mask, (int(enemy.x) - int(laser.x),int(enemy.y) - int(laser.y))) != None:
 					player.lasers.remove(laser)
 					explosions.append(explosion(enemy.x, enemy.y))
+					enemy.health -= 1
 					enemies.remove(enemy)
 				if laser.y <= 0:
 					player.lasers.remove(laser)
@@ -304,7 +334,7 @@ def main():
 			player.laser_cooldown -= 1
 		# increase level
 		if len(enemies) == 0:
-			enemies.append(enemy_Ship(random.randrange(0, SCREEN_WIDTH - ENEMY_WIDTH), random.randrange(- 1000, - 200),"Destroyer"))
+			enemies.append(Boss(SCREEN_WIDTH / 2 - destroyer_Image.get_width() / 2, - 200, 50 + level * 3))
 			level += 1
 
 main()
