@@ -3,19 +3,32 @@ import time
 import random
 pygame.font.init()
 
-# setting screen
+# CONST VARIABLES
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-#image variables (WIDTH and HEIGHT - CONST)
+FPS = 60
+
 LASER_WIDTH = 16
 LASER_HEIGHT = 16
+LASER_COOLDOWN = 20
+
 EXPLOSION_WIDTH = 60
 EXPLOSION_HEIGHT = 60
+
 ENEMY_WIDTH = 45
 ENEMY_HEIGHT = 45
+VELOCITY_ENEMIES = 8
+
+BOSS_WIDTH = 120
+BOSS_HEIGHT = 80
+
 PLAYER_WIDTH = 64
 PLAYER_HEIGHT = 64
+VELOCITY_PLAYER = 5
+
+enemies_lasers = []
+
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 # setting name and icon to our pygame
 pygame.display.set_caption("Space")
@@ -94,7 +107,6 @@ class player_Ship(ship):
 		self.flickering_long = self.FLICKERING_LONG
 		self.flickering_times = self.FLICKERING_TIMES
 
-
 	def death(self):
 		if self.flickering_times <= 0:
 			self.lost_life = False
@@ -150,8 +162,9 @@ class enemy_Ship(ship):
 			self.y += player_vel
 
 	def attack(self):
+		global enemies_lasers
 		if self.laser_cooldown <= 0 and self.y >= 0:
-			self.lasers.append(enemy_laser(self.x + self.ship_img.get_width() / 2 - 8, self.y))
+			enemies_lasers.append(enemy_laser(self.x + self.ship_img.get_width() / 2 - 8, self.y))
 			self.laser_cooldown = self.attack_speed
 		else:
 			self.laser_cooldown -= 1
@@ -166,19 +179,13 @@ class enemy_laser(laser):
 	def move(self):
 		self.y += self.laser_speed
 
-
 def main():
-	# variables
 	game = True
-	FPS = 60
 	level = 1
 	lives = 5
 	enemies_Number = 5 + level * 2
 	enemies = []
 	explosions = []
-	VELOCITY_ENEMIES = 8
-	VELOCITY_LASER = 5
-	LASER_COOLDOWN = 20
 
 	clock = pygame.time.Clock()
 
@@ -204,11 +211,11 @@ def main():
 		for enemy in enemies:
 			enemy.move(VELOCITY_ENEMIES / 2)
 			enemy.draw()
-			for laser in enemy.lasers:
-				laser.move()
-				laser.draw()
+		for laser in enemies_lasers:
+			laser.move()
+			laser.draw()
 		for laser in player.lasers:
-			laser.move(VELOCITY_LASER)
+			laser.move(VELOCITY_PLAYER)
 			laser.draw()
 		for explo in explosions:
 			if explo.remove == True:
@@ -271,9 +278,9 @@ def main():
 					lives -= 1
 					player.start_position()
 					player.lost_life = True
-			for laser in enemy.lasers:
+			for laser in enemies_lasers:
 				if laser.mask.overlap(player.mask, (int(player.x) - int(laser.x), int(player.y) - int(laser.y))) != None:
-					enemy.lasers.remove(laser)
+					enemies_lasers.remove(laser)
 					explosions.append(explosion(player.x, player.y))
 					if player.lost_life == False:
 						player.health -= 1
@@ -297,6 +304,7 @@ def main():
 			player.laser_cooldown -= 1
 		# increase level
 		if len(enemies) == 0:
+			enemies.append(enemy_Ship(random.randrange(0, SCREEN_WIDTH - ENEMY_WIDTH), random.randrange(- 1000, - 200),"Destroyer"))
 			level += 1
 
 main()
