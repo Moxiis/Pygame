@@ -14,8 +14,8 @@ LASER_COOLDOWN = 20
 
 EXPLOSION_WIDTH = 80
 EXPLOSION_HEIGHT = 80
-EXPLOSION_WIDTH_BOSS = 200
-EXPLOSION_HEIGHT_BOSS = 200
+EXPLOSION_WIDTH_BOSS = 300
+EXPLOSION_HEIGHT_BOSS = 300
 
 ENEMY_WIDTH = 45
 ENEMY_HEIGHT = 45
@@ -45,7 +45,7 @@ explosion_image = [pygame.transform.scale(pygame.image.load("images\explosion1.p
 explosion_image_boss = [pygame.transform.scale(pygame.image.load("images\explosion1.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS)), pygame.transform.scale(pygame.image.load("images\explosion2.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS)), pygame.transform.scale(pygame.image.load("images\explosion3.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS)), pygame.transform.scale(pygame.image.load("images\explosion4.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS)), pygame.transform.scale(pygame.image.load("images\explosion5.png"), (EXPLOSION_WIDTH_BOSS, EXPLOSION_HEIGHT_BOSS))]
 tiefighter_Image = pygame.transform.scale(pygame.image.load("images\star_Fighter.png"), (ENEMY_WIDTH, ENEMY_HEIGHT))
 tiebomber_Image = pygame.transform.scale(pygame.image.load("images\star_Bomber.png"), (ENEMY_WIDTH, ENEMY_HEIGHT))
-destroyer_Image = pygame.transform.scale(pygame.image.load("images\destroyer.png"), (3 * ENEMY_WIDTH, 3 * ENEMY_HEIGHT))
+destroyer_Image = pygame.transform.scale(pygame.image.load("images\destroyer.png"), (10 * ENEMY_WIDTH, 10 * ENEMY_HEIGHT))
 background = pygame.transform.scale(pygame.image.load("images\space.png"), (SCREEN_WIDTH, SCREEN_HEIGHT))
 
 # laser class(PARENT)
@@ -79,16 +79,21 @@ class ship:
 
 # EXPLOSION
 class explosion:
-	def __init__(self,x,y):
+	def __init__(self, x, y, img):
 		self.x = x
 		self.y = y
 		self.image = explosion_image
+		self.image_boss = explosion_image_boss
 		self.count = 0
 		self.remove = False
+		self.image_check = img
 
 	def draw(self):
 		if self.count >= 25:
 			self.remove = True
+		elif self.image_check == destroyer_Image:
+			screen.blit(self.image_boss[self.count//5], (int(self.x + BOSS_WIDTH / 2), int(self.y + 150)))
+			self.count += 1
 		else:
 			screen.blit(self.image[self.count//5], (int(self.x), int(self.y)))
 			self.count += 1
@@ -99,7 +104,6 @@ class player_Ship(ship):
 	def __init__(self, x, y):
 
 		super().__init__(x,y,type)
-		self.health = 3
 		self.speed = 5
 		self.ship_img = playerImage
 		self.laser_img = playerlaser_image
@@ -174,28 +178,36 @@ class enemy_Ship(ship):
 			self.laser_cooldown -= 1
 
 class Boss(ship):
-	def __init__(self, x, y, health):
-		super().__init__(x, y, health)
-		self.speed = 2
+	def __init__(self, x, y, health, attack_speed):
+		super().__init__(x, y, health,)
+		self.speed = 0.5
 		self.start_attack = False
-		self.health = 50
+		self.health = health
 		self.ship_img = destroyer_Image
-		self.laser_cooldown = 40
-		self.attack_speed = 240
+		self.attack_speed = attack_speed
+		self.laser_cooldown = 30
 		self.mask = pygame.mask.from_surface(self.ship_img)
 
 	def move(self):
-		self.y += self.speed
-		if self.y >= SCREEN_WIDTH * 0.10:
+		temp_health = self.health
+		if self.y >= - 150:
 			self.start_attack = True
+		else:
+			self.health = temp_health
+			self.y += self.speed
+
 
 	def attack(self):
 		global enemies_lasers
-		if self.laser_cooldown <= 0 and self.y >= 0:
-			enemies_lasers.append(enemy_laser(self.x + self.ship_img.get_width() / 2 - 8, self.y))
-			self.laser_cooldown = self.attack_speed
-		else:
-			self.laser_cooldown -= 1
+		width = random.randrange(0, SCREEN_WIDTH - 200)
+		if self.start_attack == True:
+			if self.laser_cooldown <= 0 and self.y >= - 150:
+				for i in range(10):
+					enemies_lasers.append(enemy_laser(width, self.y + destroyer_Image.get_width() - 100))
+					self.laser_cooldown = self.attack_speed
+					width += 20
+			else:
+				self.laser_cooldown -= 1
 
 class enemy_laser(laser):
 	def __init__(self, x, y):
@@ -209,6 +221,7 @@ class enemy_laser(laser):
 
 def main():
 	game = True
+	Boss_death = False
 	level = 1
 	lives = 5
 	enemies_Number = 5 + level * 2
@@ -298,11 +311,12 @@ def main():
 		for enemy in enemies:
 			enemy.attack()
 			if player.mask.overlap(enemy.mask, (int(enemy.x) - int(player.x),int(enemy.y) - int(player.y))) != None:
-				explosions.append(explosion(enemy.x, enemy.y))
-				enemies.remove(enemy)
 				enemy.health -= 1
+				if enemy.health <= 0:
+					explosions.append(explosion(enemy.x, enemy.y,enemy.ship_img))
+					enemies.remove(enemy)
 				if player.lost_life == False:
-					explosions.append(explosion(player.x, player.y))
+					explosions.append(explosion(player.x, player.y,player.ship_img))
 					player.health -= 1
 					lives -= 1
 					player.start_position()
@@ -310,7 +324,7 @@ def main():
 			for laser in enemies_lasers:
 				if laser.mask.overlap(player.mask, (int(player.x) - int(laser.x), int(player.y) - int(laser.y))) != None:
 					enemies_lasers.remove(laser)
-					explosions.append(explosion(player.x, player.y))
+					explosions.append(explosion(player.x, player.y, player.ship_img))
 					if player.lost_life == False:
 						player.health -= 1
 						lives -= 1
@@ -319,9 +333,10 @@ def main():
 			for laser in player.lasers:
 				if laser.mask.overlap(enemy.mask, (int(enemy.x) - int(laser.x),int(enemy.y) - int(laser.y))) != None:
 					player.lasers.remove(laser)
-					explosions.append(explosion(enemy.x, enemy.y))
 					enemy.health -= 1
-					enemies.remove(enemy)
+					if enemy.health <= 0:
+						explosions.append(explosion(enemy.x, enemy.y, enemy.ship_img))
+						enemies.remove(enemy)
 				if laser.y <= 0:
 					player.lasers.remove(laser)
 				if laser.y > SCREEN_HEIGHT:
@@ -329,12 +344,18 @@ def main():
 			if enemy.y >= SCREEN_HEIGHT:
 				enemies.remove(enemy)
 				lives -= 1
+			if enemy.health <= 0 and isinstance(enemy,Boss):
+				enemies = []
+				level += 1
+				Boss_death = True
 		# laser cooldown decrease
 		if player.laser_cooldown != 0:
 			player.laser_cooldown -= 1
-		# increase level
+		# spawn boss
 		if len(enemies) == 0:
-			enemies.append(Boss(SCREEN_WIDTH / 2 - destroyer_Image.get_width() / 2, - 200, 50 + level * 3))
-			level += 1
+			if Boss_death == False:
+				enemies.append(Boss(SCREEN_WIDTH / 2 - destroyer_Image.get_width() / 2, - 200, 30 + level * 3, 120 - level * 2))
+			else:
+				Boss_death = False
 
 main()
